@@ -41,14 +41,15 @@ const upload = multer({ dest: 'uploads/' });
 app.post('/api/candidatos', upload.single('cv'), async (req, res) => {
   try {
     const { nombre, correo, telefono, puesto, linkedin } = req.body;
-    const nombreArchivo = req.file.originalname; // <-- el nombre original
+    const nombreArchivo = req.file.originalname; // nombre original
+    const filePath = req.file.path; // <-- AQUÍ obtienes la ruta real
 
-    const result = await cloudinary.uploader.upload(cvPath, {
+    const result = await cloudinary.uploader.upload(filePath, {
       resource_type: 'raw',
       folder: 'cvs',
-      public_id: nombreArchivo.replace(/\.[^/.]+$/, ""), // nombre sin extensión para que Cloudinary lo guarde bien
+      public_id: nombreArchivo.replace(/\.[^/.]+$/, ""), // nombre sin extensión
       use_filename: true,
-      unique_filename: false // para mantener el nombre que subiste
+      unique_filename: false // mantener el nombre que subiste
     });
 
     // Guardar en BD
@@ -59,19 +60,20 @@ app.post('/api/candidatos', upload.single('cv'), async (req, res) => {
       puesto,
       url_cv: result.secure_url,
       linkedin,
-      nombre_cv: nombreArchivo, // <-- agrega este campo al modelo también si quieres
+      nombre_cv: nombreArchivo,
     });
 
     await candidato.save();
 
     // Borrar archivo temporal
-    fs.unlinkSync(cvPath);
+    fs.unlinkSync(filePath);
 
     res.json({ ok: true, candidato });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
 
 // Borrar candidato por ID
 app.delete('/api/candidatos/:id', async (req, res) => {
