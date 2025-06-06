@@ -31,6 +31,7 @@ const candidatoSchema = new mongoose.Schema({
   puesto: String,
   url_cv: String,
   linkedin: String,  // <-- Agrega esto
+  nombre_cv: String, // nombre original del archivo
   fechaRegistro: { type: Date, default: Date.now },
 });
 
@@ -43,12 +44,14 @@ const upload = multer({ dest: 'uploads/' });
 app.post('/api/candidatos', upload.single('cv'), async (req, res) => {
   try {
     const { nombre, correo, telefono, puesto, linkedin } = req.body;
-    const cvPath = req.file.path;
+    const nombreArchivo = req.file.originalname; // <-- el nombre original
 
-    // Subir a Cloudinary (tipo raw para PDF)
     const result = await cloudinary.uploader.upload(cvPath, {
       resource_type: 'raw',
-      folder: 'cvs', // opcional, crea carpeta en Cloudinary
+      folder: 'cvs',
+      public_id: nombreArchivo.replace(/\.[^/.]+$/, ""), // nombre sin extensión para que Cloudinary lo guarde bien
+      use_filename: true,
+      unique_filename: false // para mantener el nombre que subiste
     });
 
     // Guardar en BD
@@ -59,7 +62,9 @@ app.post('/api/candidatos', upload.single('cv'), async (req, res) => {
       puesto,
       url_cv: result.secure_url,
       linkedin,
+      nombre_cv: nombreArchivo, // <-- agrega este campo al modelo también si quieres
     });
+
     await candidato.save();
 
     // Borrar archivo temporal
@@ -70,6 +75,18 @@ app.post('/api/candidatos', upload.single('cv'), async (req, res) => {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+// Borrar candidato por ID
+app.delete('/api/candidatos/:id', async (req, res) => {
+  try {
+    const candidato = await Candidato.findByIdAndDelete(req.params.id);
+    if (!candidato) return res.status(404).json({ ok: false, error: "Candidato no encontrado" });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 
 // Endpoint para listar candidatos
 app.get('/api/candidatos', async (req, res) => {
