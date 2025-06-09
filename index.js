@@ -27,7 +27,8 @@ const candidatoSchema = new mongoose.Schema({
   telefono: String,
   puesto: String,
   url_cv: String,
-  linkedin: String,  // <-- Agrega esto
+  fit: { type: String, enum: ['goodfit', 'maybe'], default: 'goodfit' },
+  linkedin: String,
   nombre_cv: String, // nombre original del archivo
   fechaRegistro: { type: Date, default: Date.now },
 });
@@ -73,6 +74,20 @@ app.post('/api/candidatos', upload.single('cv'), async (req, res) => {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+// Actualizar fit de candidato por ID
+app.patch('/api/candidatos/:id/fit', async (req, res) => {
+  try {
+    const { fit } = req.body;
+    if (!['goodfit', 'maybe'].includes(fit)) throw new Error('Valor no válido');
+    const candidato = await Candidato.findByIdAndUpdate(req.params.id, { fit }, { new: true });
+    if (!candidato) return res.status(404).json({ ok: false, error: "Candidato no encontrado" });
+    res.json({ ok: true, candidato });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 
 
 // Borrar candidato por ID
